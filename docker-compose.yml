@@ -6,38 +6,51 @@ services:
     container_name: apartment-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: apartment_db
-      MYSQL_USER: root
-      MYSQL_PASSWORD: 1234
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppassword
     ports:
-      - '3306:3306'
-    volumes:
-      - mysql_data:/var/lib/mysql
+      - '3307:3306'
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./backend
     container_name: apartment-backend
-    ports:
-      - '3333:3333'
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       DB_HOST: db
       DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: 1234
+      DB_USER: appuser
+      DB_PASSWORD: apppassword
       DB_NAME: apartment_db
-    depends_on:
-      - db
+    ports:
+      - '3333:3333'
+    networks:
+      - app-network
 
   frontend:
     build: ./frontend
     container_name: apartment-frontend
-    ports:
-      - '3000:3000'
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: 'http://localhost:3333'
+    restart: always
     depends_on:
       - backend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: 'http://apartment-backend:3333'
+    ports:
+      - '3000:3000'
+    networks:
+      - app-network
 
-volumes:
-  mysql_data:
+networks:
+  app-network:
+    driver: bridge
